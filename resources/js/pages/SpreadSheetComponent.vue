@@ -5,12 +5,14 @@
         <main class="flex-grow p-4 sm:p-6 lg:p-8">
             <MonthTabsComponent :months="months" :currentMonth="currentMonth" @update:currentMonth="setCurrentMonth" />
 
-            <SummaryComponent 
-                :totalIncome="totalIncome" 
-                :totalExpenses="totalExpenses" 
+            <SummaryComponent
+                :totalIncome="totalIncome"
+                :totalExpenses="totalExpenses"
                 :netAmount="netAmount"
                 :totalNetAllMonths="totalNetAllMonths"
             />
+
+
 
             <!-- Category Pie Chart -->
             <div class="bg-white rounded-lg shadow mt-6 mb-6 p-4">
@@ -19,26 +21,31 @@
                     :currentYear="currentYear" />
             </div>
 
-            <NewEntryFormComponent 
-                :categories="categories" 
-                :currentMonth="currentMonth" 
-                :currentYear="currentYear" 
+             <!-- Bank Statement Upload Component -->
+             <div class="bg-white rounded-lg shadow mt-6 mb-6 p-4">
+                <BankStatementUploadComponent @transactions-updated="handleUploadedTransactions" />
+            </div>
+
+            <NewEntryFormComponent
+                :categories="categories"
+                :currentMonth="currentMonth"
+                :currentYear="currentYear"
                 :months="months"
                 @add-new-entry="addNewEntry"
             />
 
-            <SpreadsheetGridComponent 
-                :rowData="rowData" 
-                :currentMonth="currentMonth" 
-                :currentYear="currentYear" 
+            <SpreadsheetGridComponent
+                :rowData="rowData"
+                :currentMonth="currentMonth"
+                :currentYear="currentYear"
                 :months="months"
                 @cell-value-changed="onCellValueChanged"
                 @grid-ready="onGridReady"
                 @delete-entry="deleteEntry"
             />
 
-            <PaginationComponent 
-                :currentPage="currentPage" 
+            <PaginationComponent
+                :currentPage="currentPage"
                 :totalPages="totalPages"
                 @first="onBtFirst"
                 @previous="onBtPrevious"
@@ -52,13 +59,14 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import HeaderComponent from './HeaderComponent.vue';
-import MonthTabsComponent from './MonthTabsComponent.vue';
-import SummaryComponent from './SummaryComponent.vue';
-import CategoryPieChart from './CategoryPieChart.vue';
-import NewEntryFormComponent from './NewEntryFormComponent.vue';
-import SpreadsheetGridComponent from './SpreadsheetGridComponent.vue';
-import PaginationComponent from './PaginationComponent.vue';
+import HeaderComponent from '../components/HeaderComponent.vue';
+import MonthTabsComponent from '../components/MonthTabsComponent.vue';
+import SummaryComponent from '../components/SummaryComponent.vue';
+import CategoryPieChart from '../components/CategoryPieChart.vue';
+import NewEntryFormComponent from '../components/NewEntryFormComponent.vue';
+import SpreadsheetGridComponent from '../components/SpreadsheetGridComponent.vue';
+import PaginationComponent from '../components/PaginationComponent.vue';
+import BankStatementUploadComponent from '../components/BankStatementUploadComponent.vue';
 
 export default {
     components: {
@@ -68,14 +76,15 @@ export default {
         CategoryPieChart,
         NewEntryFormComponent,
         SpreadsheetGridComponent,
-        PaginationComponent
+        PaginationComponent,
+        BankStatementUploadComponent
     },
     setup() {
         const months = ref(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
         const currentMonth = ref(months.value[new Date().getMonth()]);
         const currentYear = ref(new Date().getFullYear());
         const categories = ref([
-            'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Gifts',
+            'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts',
             'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping',
             'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities'
         ]);
@@ -222,6 +231,11 @@ export default {
             updatePaginationState();
         };
 
+        const handleUploadedTransactions = (transactions) => {
+            rowData.value = [...rowData.value, ...transactions];
+            updatePaginationState();
+        };
+
         onMounted(() => {
             fetchTransactions();
             const now = new Date();
@@ -250,7 +264,8 @@ export default {
             onBtFirst,
             onBtLast,
             onBtNext,
-            onBtPrevious
+            onBtPrevious,
+            handleUploadedTransactions
         };
     }
 };

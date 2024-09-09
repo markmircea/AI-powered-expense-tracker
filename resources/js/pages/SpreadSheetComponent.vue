@@ -1,63 +1,49 @@
 <template>
     <div class="min-h-screen bg-gray-100 flex flex-col">
-        <HeaderComponent :currentMonth="currentMonth" :currentYear="currentYear" />
-
+        <HeaderComponent :currentMonth="currentMonth" :currentYear="currentYear" :auth="auth" />
         <main class="flex-grow p-4 sm:p-6 lg:p-8">
-            <MonthTabsComponent :months="months" :currentMonth="currentMonth" @update:currentMonth="setCurrentMonth" />
+            <div class="max-w-7xl mx-auto">
+                <MonthTabsComponent :months="months" :currentMonth="currentMonth" @update:currentMonth="setCurrentMonth"
+                    data-aos="fade-down" />
 
-            <SummaryComponent
-                :totalIncome="totalIncome"
-                :totalExpenses="totalExpenses"
-                :netAmount="netAmount"
-                :totalNetAllMonths="totalNetAllMonths"
-            />
+                <SummaryComponent :totalIncome="totalIncome" :totalExpenses="totalExpenses" :netAmount="netAmount"
+                    :totalNetAllMonths="totalNetAllMonths" data-aos="fade-up" />
 
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-white rounded-lg shadow p-6" data-aos="fade-right">
+                        <h2 class="text-lg font-semibold mb-4">Expense Categories for {{ currentMonth }} {{ currentYear
+                            }}</h2>
+                        <CategoryPieChart :transactions="filteredRowData" :currentMonth="months.indexOf(currentMonth)"
+                            :currentYear="currentYear" />
+                    </div>
 
+                    <div class="bg-white rounded-lg shadow p-6" data-aos="fade-left">
+                        <h2 class="text-lg font-semibold mb-4">Upload Bank Statement</h2>
+                        <BankStatementUploadComponent @transactions-updated="handleUploadedTransactions" />
+                    </div>
+                </div>
 
-            <!-- Category Pie Chart -->
-            <div class="bg-white rounded-lg shadow mt-6 mb-6 p-4">
-                <h2 class="text-lg font-semibold mb-4">Expense Categories for {{ currentMonth }} {{ currentYear }}</h2>
-                <CategoryPieChart :transactions="filteredRowData" :currentMonth="months.indexOf(currentMonth)"
-                    :currentYear="currentYear" />
+                <NewEntryFormComponent :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
+                    :months="months" @add-new-entry="addNewEntry" class="mt-6" data-aos="fade-up" />
+
+                <div class="mt-6" data-aos="fade-up">
+                    <SpreadsheetGridComponent :rowData="rowData" :currentMonth="currentMonth" :currentYear="currentYear"
+                        :months="months" @cell-value-changed="onCellValueChanged" @grid-ready="onGridReady"
+                        @delete-entry="deleteEntry" />
+                </div>
+
+                <PaginationComponent :currentPage="currentPage" :totalPages="totalPages" @first="onBtFirst"
+                    @previous="onBtPrevious" @next="onBtNext" @last="onBtLast" class="mt-4" data-aos="fade-up" />
             </div>
-
-             <!-- Bank Statement Upload Component -->
-             <div class="bg-white rounded-lg shadow mt-6 mb-6 p-4">
-                <BankStatementUploadComponent @transactions-updated="handleUploadedTransactions" />
-            </div>
-
-            <NewEntryFormComponent
-                :categories="categories"
-                :currentMonth="currentMonth"
-                :currentYear="currentYear"
-                :months="months"
-                @add-new-entry="addNewEntry"
-            />
-
-            <SpreadsheetGridComponent
-                :rowData="rowData"
-                :currentMonth="currentMonth"
-                :currentYear="currentYear"
-                :months="months"
-                @cell-value-changed="onCellValueChanged"
-                @grid-ready="onGridReady"
-                @delete-entry="deleteEntry"
-            />
-
-            <PaginationComponent
-                :currentPage="currentPage"
-                :totalPages="totalPages"
-                @first="onBtFirst"
-                @previous="onBtPrevious"
-                @next="onBtNext"
-                @last="onBtLast"
-            />
         </main>
     </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+
+
 import axios from 'axios';
 import HeaderComponent from '../components/HeaderComponent.vue';
 import MonthTabsComponent from '../components/MonthTabsComponent.vue';
@@ -80,6 +66,8 @@ export default {
         BankStatementUploadComponent
     },
     setup() {
+        const page = usePage();
+        const auth = computed(() => page.props.auth);
         const months = ref(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
         const currentMonth = ref(months.value[new Date().getMonth()]);
         const currentYear = ref(new Date().getFullYear());
@@ -241,7 +229,14 @@ export default {
             const now = new Date();
             setCurrentMonth(months.value[now.getMonth()]);
             currentYear.value = now.getFullYear();
+            console.log('SpreadsheetComponent mounted, auth:', auth.value);
         });
+
+        watch(auth, (newAuth) => {
+            console.log('Auth changed:', newAuth);
+        }, { deep: true });
+        console.log('Initial auth data:', auth.value);
+
 
         return {
             months,
@@ -265,7 +260,8 @@ export default {
             onBtLast,
             onBtNext,
             onBtPrevious,
-            handleUploadedTransactions
+            handleUploadedTransactions,
+            auth
         };
     }
 };
@@ -284,12 +280,12 @@ body {
 /* Input styles */
 .form-input,
 .form-select {
-    @apply block w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md transition duration-150 ease-in-out;
+    @apply block w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md transition duration-300 ease-in-out;
 }
 
 /* Button styles */
 .btn {
-    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out;
+    @apply inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out;
 }
 
 /* Custom scrollbar */
@@ -338,12 +334,12 @@ body {
 }
 
 .ag-theme-alpine .ag-row-hover {
-    @apply transition-colors duration-150 ease-in-out;
+    @apply transition-colors duration-300 ease-in-out;
 }
 
 /* User icon styles */
 .user-icon {
-    @apply w-8 h-8 rounded-full flex items-center justify-center font-bold text-white cursor-pointer transition duration-150 ease-in-out;
+    @apply w-8 h-8 rounded-full flex items-center justify-center font-bold text-white cursor-pointer transition duration-300 ease-in-out;
 }
 
 .user-icon.mark {
@@ -356,7 +352,7 @@ body {
 
 /* Delete button styles */
 .delete-btn {
-    @apply p-1 rounded-full hover:bg-red-100 transition duration-150 ease-in-out;
+    @apply p-1 rounded-full hover:bg-red-100 transition duration-300 ease-in-out;
 }
 
 .delete-btn i {
@@ -367,18 +363,15 @@ body {
 .month-tabs-container {
     @apply flex justify-center overflow-x-auto;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* Firefox */
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .month-tabs-container::-webkit-scrollbar {
     display: none;
 }
 
 .month-tab {
-    @apply px-3 py-2 text-sm font-medium rounded-md transition duration-150 ease-in-out;
+    @apply px-3 py-2 text-sm font-medium rounded-md transition duration-300 ease-in-out;
 }
 
 .month-tab.active {
@@ -391,7 +384,7 @@ body {
 
 /* Summary section styles */
 .summary-item {
-    @apply flex flex-col items-center p-4 bg-white rounded-lg shadow;
+    @apply flex flex-col items-center p-4 bg-white rounded-lg shadow transition duration-300 ease-in-out hover:shadow-lg;
 }
 
 .summary-label {
@@ -449,10 +442,57 @@ body {
 }
 
 .pagination-btn {
-    @apply px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-150 ease-in-out;
+    @apply px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition duration-300 ease-in-out;
 }
 
 .pagination-btn:disabled {
     @apply opacity-50 cursor-not-allowed;
+}
+
+/* Animation classes */
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+
+.slide-fade-enter-active {
+    transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+    transition: all 0.8s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+    transform: translateX(20px);
+    opacity: 0;
+}
+
+.bounce-enter-active {
+    animation: bounce-in 0.5s;
+}
+
+.bounce-leave-active {
+    animation: bounce-in 0.5s reverse;
+}
+
+@keyframes bounce-in {
+    0% {
+        transform: scale(0);
+    }
+
+    50% {
+        transform: scale(1.25);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 </style>

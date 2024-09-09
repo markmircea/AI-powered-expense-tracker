@@ -6,11 +6,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use OpenAI\Laravel\Facades\OpenAI;
 use App\Models\Transaction;
+use App\Models\BankStatement;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Str;
 
 class BankStatementController extends Controller
 {
@@ -21,7 +22,15 @@ class BankStatementController extends Controller
         ]);
 
         $file = $request->file('bankStatement');
-        $path = $file->store('temp');
+        $originalName = $file->getClientOriginalName();
+        $path = $file->store('bank_statements');
+
+        // Save the uploaded file information
+        $bankStatement = BankStatement::create([
+            'name' => $originalName,
+            'path' => $path,
+            'size' => $file->getSize(),
+        ]);
 
         // Extract content from the file
         $content = $this->extractContentFromFile($path, $file->getClientOriginalExtension());
@@ -32,12 +41,29 @@ class BankStatementController extends Controller
         // Process and save transactions
         $transactions = $this->processAndSaveTransactions($analysis);
 
-        // Delete the temporary file
-        Storage::delete($path);
-
         return Inertia::render('SpreadSheetComponent', [
             'transactions' => $transactions,
         ]);
+    }
+
+    public function getPreviousUploads()
+    {
+        $previousUploads = BankStatement::orderBy('created_at', 'desc')->get();
+        return response()->json($previousUploads);
+    }
+
+    public function downloadUpload($id)
+    {
+        $bankStatement = BankStatement::findOrFail($id);
+        return Storage::download($bankStatement->path, $bankStatement->name);
+    }
+
+    public function deleteUpload($id)
+    {
+        $bankStatement = BankStatement::findOrFail($id);
+        Storage::delete($bankStatement->path);
+        $bankStatement->delete();
+        return response()->json(['message' => 'File deleted successfully']);
     }
 
     private function extractContentFromFile($path, $extension)
@@ -134,5 +160,4 @@ class BankStatementController extends Controller
 
         return $savedTransactions;
     }
-
 }

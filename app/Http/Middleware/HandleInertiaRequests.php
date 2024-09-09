@@ -1,27 +1,44 @@
 <?php
 
-namespace App\Providers;
+namespace App\Http\Middleware;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Http\Request;
+use Inertia\Middleware;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 
-class AppServiceProvider extends ServiceProvider
+class HandleInertiaRequests extends Middleware
 {
     /**
-     * Register any application services.
+     * The root template that is loaded on the first page visit.
+     *
+     * @var string
      */
-    public function register(): void
+    protected $rootView = 'app';
+
+    /**
+     * Determine the current asset version.
+     */
+    public function version(Request $request): string|null
     {
-        //
+        return parent::version($request);
     }
 
     /**
-     * Bootstrap any application services.
+     * Define the props that are shared by default.
+     *
+     * @return array<string, mixed>
      */
-    public function boot(): void
+    public function share(Request $request): array
     {
-        Inertia::version(function () {
-            return md5_file(public_path('build/manifest.json'));
-        });
+        return array_merge(parent::share($request), [
+            'auth' => [
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                ] : null,
+            ],
+        ]);
     }
 }

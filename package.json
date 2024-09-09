@@ -19,6 +19,8 @@
         "@vitejs/plugin-vue": "^5.1.3",
         "ag-grid-community": "^32.1.0",
         "ag-grid-vue3": "^32.1.0",
+        "animate.css": "^4.1.1",
+        "aos": "^2.3.4",
         "chart.js": "^4.4.4",
         "vue": "^3.4.38",
         "vue-chartjs": "^5.3.1"

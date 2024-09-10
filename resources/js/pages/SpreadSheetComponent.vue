@@ -46,8 +46,10 @@
 
                     <div class="bg-white rounded-lg shadow p-6" data-aos="fade-left">
                         <h2 class="text-lg font-semibold mb-4">Upload Bank Statement</h2>
-                        <BankStatementUploadComponent @transactions-updated="handleUploadedTransactions" />
-                    </div>
+                        <BankStatementUploadComponent
+  @transactions-updated="handleUploadedTransactions"
+  :selectedTeamId="selectedTeamId"
+/>                    </div>
                 </div>
 
                 <NewEntryFormComponent :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
@@ -66,8 +68,8 @@
         </main>
     </div>
 </template>
-
 <script>
+import { ref, provide } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import HeaderComponent from '../components/HeaderComponent.vue';
@@ -90,6 +92,14 @@ export default {
         PaginationComponent,
         BankStatementUploadComponent
     },
+    setup() {
+        const selectedTeamId = ref(null);
+        provide('selectedTeamId', selectedTeamId);
+
+        return {
+            selectedTeamId,
+        };
+    },
     data() {
         return {
             auth: null,
@@ -105,10 +115,9 @@ export default {
             gridApi: null,
             currentPage: 1,
             totalPages: 1,
-            selectedTeamId: null,
             ownedTeams: [],
             memberTeams: [],
-            errorMessage: null, // New property for storing error messages
+            errorMessage: null,
         };
     },
     computed: {
@@ -169,7 +178,6 @@ export default {
                 this.handleAxiosError(error, 'Error fetching user teams');
             }
         },
-
         getCsrfToken() {
             const token = document.querySelector('meta[name="csrf-token"]');
             return token ? token.getAttribute('content') : null;
@@ -277,36 +285,24 @@ export default {
             this.updatePaginationState();
         },
         handleUploadedTransactions(transactions) {
-            const updatedTransactions = transactions.map(transaction => ({
-                ...transaction,
-                team_id: this.selectedTeamId
-            }));
-            this.rowData = [...this.rowData, ...updatedTransactions];
+            this.rowData = [...this.rowData, ...transactions];
             this.updatePaginationState();
         },
-        // New method to show error messages
         showError(message) {
             this.errorMessage = message;
-            // Optionally, you can set a timer to clear the error message after a few seconds
             setTimeout(() => {
                 this.clearError();
             }, 5000);
         },
-        // New method to clear error messages
         clearError() {
             this.errorMessage = null;
         },
-        // New method to handle Axios errors
         handleAxiosError(error, defaultMessage) {
             if (error.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
                 this.showError(`${defaultMessage}: ${error.response.data.message || error.response.statusText}`);
             } else if (error.request) {
-                // The request was made but no response was received
                 this.showError(`${defaultMessage}: No response received from server. Please check your internet connection.`);
             } else {
-                // Something happened in setting up the request that triggered an Error
                 this.showError(`${defaultMessage}: ${error.message}`);
             }
         },
@@ -338,9 +334,11 @@ export default {
             deep: true
         },
         selectedTeamId: {
-            handler() {
+            handler(newValue) {
+                console.log('Selected Team ID changed:', newValue);
                 this.fetchTransactions();
-            }
+            },
+            immediate: true
         }
     },
 };

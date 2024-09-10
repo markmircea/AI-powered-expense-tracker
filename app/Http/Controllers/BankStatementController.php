@@ -12,6 +12,10 @@ use Carbon\Carbon;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Team;  // Add this line to import the Team model
+
+
 
 class BankStatementController extends Controller
 {
@@ -19,6 +23,7 @@ class BankStatementController extends Controller
     {
         $request->validate([
             'bankStatement' => 'required|file|mimes:csv,xlsx,xls',
+            'teamId' => 'nullable|exists:teams,id',
         ]);
 
         $file = $request->file('bankStatement');
@@ -39,7 +44,7 @@ class BankStatementController extends Controller
         $analysis = $this->analyzeContentWithOpenAI($content);
 
         // Process and save transactions
-        $transactions = $this->processAndSaveTransactions($analysis);
+        $transactions = $this->processAndSaveTransactions($analysis, $request->input('teamId'));
 
         return Inertia::render('SpreadSheetComponent', [
             'transactions' => $transactions,
@@ -130,28 +135,35 @@ class BankStatementController extends Controller
         }
     }
 
-    private function processAndSaveTransactions($analysis)
+    private function processAndSaveTransactions($analysis, $teamId)
     {
         $savedTransactions = [];
         $currentDate = Carbon::now()->format('Y-m-d');
-        $userId = auth()->id(); // Get the current authenticated user's ID
+        $userId = Auth::id();
 
         if (!isset($analysis['transactions']) || !is_array($analysis['transactions'])) {
             Log::error('Invalid analysis format received from AI: ' . json_encode($analysis));
             throw new \Exception("Invalid analysis format received from AI");
         }
 
+        // Check if the user has access to the team
+        if ($teamId) {
+            $team = Team::find($teamId);
+            if (!$team || ($team->owner_id !== $userId && !$team->members->contains($userId))) {
+                throw new \Exception("You don't have access to this team");
+            }
+        }
+
         foreach ($analysis['transactions'] as $transaction) {
             try {
                 $savedTransaction = Transaction::create([
-                    'user_id' => $userId, // Set the user_id
+                    'user_id' => $userId,
+                    'team_id' => $teamId, // Set the team_id
                     'date' => $transaction['date'] ?? $currentDate,
                     'description' => $transaction['description'] ?? 'No description',
                     'amount' => $transaction['amount'] ?? 0,
                     'category' => $transaction['category'] ?? 'Uncategorized',
                     'type' => strtolower($transaction['type'] ?? 'expense'),
-                    // Remove or comment out the 'user' field if it's not in your transactions table
-                    // 'user' => 'Auto',
                 ]);
 
                 $savedTransactions[] = $savedTransaction;

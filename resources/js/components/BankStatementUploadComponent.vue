@@ -53,15 +53,17 @@
 
 <script>
 import { useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, inject } from 'vue';
 
 export default {
-  emits: ['transactions-updated'],
+    emits: ['transactions-updated'],
   setup(props, { emit }) {
+    const selectedTeamId = inject('selectedTeamId'); // Inject the selected team ID
+
     const form = useForm({
       bankStatement: null,
+      teamId: null, // Add this line
     });
-
     const fileInputRef = ref(null);
 
     const handleFileChange = (event) => {
@@ -88,6 +90,7 @@ export default {
     };
 
     const submit = () => {
+      form.teamId = selectedTeamId.value; // Set the team ID before submitting
       form.post('/api/upload-bank-statement', {
         preserveScroll: true,
         preserveState: true,

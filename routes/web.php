@@ -7,6 +7,8 @@ use App\Http\Controllers\BankStatementController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\LogoutController;
+use App\Http\Controllers\TeamController;
+use Illuminate\Http\Request;
 
 // Public Routes
 Route::middleware('guest')->group(function () {
@@ -37,6 +39,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/previous-uploads', [BankStatementController::class, 'getPreviousUploads']);
     Route::get('/api/download-upload/{id}', [BankStatementController::class, 'downloadUpload']);
     Route::delete('/api/delete-upload/{id}', [BankStatementController::class, 'deleteUpload']);
+
+    Route::resource('teams', TeamController::class);
+    Route::post('/teams/{team}/add-member', [TeamController::class, 'addMember'])->name('teams.add-member');
+    Route::post('/teams/{team}/remove-member', [TeamController::class, 'removeMember'])->name('teams.remove-member');
+    Route::post('/teams/{team}/leave', [TeamController::class, 'leave'])->name('teams.leave');
+
+    // Explicitly define the DELETE route for teams
+    Route::delete('/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
+
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::get('/user/teams', [TeamController::class, 'getUserTeams']);
 });
 
 // Catch-all Route

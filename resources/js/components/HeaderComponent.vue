@@ -56,6 +56,7 @@ export default {
       navItems: [
         { text: 'Dashboard', href: '/' },
         { text: 'Upload Statement', href: '/upload-bank-statement' },
+        { text: 'Manage Teams', href: '/teams'}
       ]
     }
   },

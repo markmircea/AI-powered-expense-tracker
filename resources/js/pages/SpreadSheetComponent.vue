@@ -3,16 +3,43 @@
         <HeaderComponent :currentMonth="currentMonth" :currentYear="currentYear" :auth="auth" />
         <main class="flex-grow p-4 sm:p-6 lg:p-8">
             <div class="max-w-7xl mx-auto">
+                <!-- Error message display -->
+                <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">Error:</strong>
+                    <span class="block sm:inline">{{ errorMessage }}</span>
+                    <span class="absolute top-0 bottom-0 right-0 px-4 py-3" @click="clearError">
+                        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                    </span>
+                </div>
+
                 <MonthTabsComponent :months="months" :currentMonth="currentMonth" @update:currentMonth="setCurrentMonth"
                     data-aos="fade-down" />
+
+                <select
+                    id="team-select"
+                    v-model="selectedTeamId"
+                    @change="fetchTransactions"
+                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                >
+                    <option :value="null">Personal Transactions</option>
+                    <optgroup label="Teams I Own">
+                        <option v-for="team in ownedTeams" :key="'owned-' + team.id" :value="team.id">
+                            {{ team.name }} (Owner)
+                        </option>
+                    </optgroup>
+                    <optgroup label="Teams I'm a Member Of">
+                        <option v-for="team in filteredMemberTeams" :key="'member-' + team.id" :value="team.id">
+                            {{ team.name }}
+                        </option>
+                    </optgroup>
+                </select>
 
                 <SummaryComponent :totalIncome="totalIncome" :totalExpenses="totalExpenses" :netAmount="netAmount"
                     :totalNetAllMonths="totalNetAllMonths" data-aos="fade-up" />
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <div class="bg-white rounded-lg shadow p-6" data-aos="fade-right">
-                        <h2 class="text-lg font-semibold mb-4">Expense Categories for {{ currentMonth }} {{ currentYear
-                            }}</h2>
+                        <h2 class="text-lg font-semibold mb-4">Expense Categories for {{ currentMonth }} {{ currentYear }}</h2>
                         <CategoryPieChart :transactions="filteredRowData" :currentMonth="months.indexOf(currentMonth)"
                             :currentYear="currentYear" />
                     </div>
@@ -24,7 +51,8 @@
                 </div>
 
                 <NewEntryFormComponent :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
-                    :months="months" @add-new-entry="addNewEntry" class="mt-6" data-aos="fade-up" />
+                    :months="months" :selectedTeamId="selectedTeamId" @add-new-entry="addNewEntry" class="mt-6"
+                    data-aos="fade-up" />
 
                 <div class="mt-6" data-aos="fade-up">
                     <SpreadsheetGridComponent :rowData="rowData" :currentMonth="currentMonth" :currentYear="currentYear"
@@ -40,10 +68,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-
-
 import axios from 'axios';
 import HeaderComponent from '../components/HeaderComponent.vue';
 import MonthTabsComponent from '../components/MonthTabsComponent.vue';
@@ -65,49 +90,56 @@ export default {
         PaginationComponent,
         BankStatementUploadComponent
     },
-    setup() {
-        const page = usePage();
-        const auth = computed(() => page.props.auth);
-        const months = ref(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
-        const currentMonth = ref(months.value[new Date().getMonth()]);
-        const currentYear = ref(new Date().getFullYear());
-        const categories = ref([
-            'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts',
-            'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping',
-            'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities'
-        ]);
-
-        const rowData = ref([]);
-        const gridApi = ref(null);
-        const currentPage = ref(1);
-        const totalPages = ref(1);
-
-        const filteredRowData = computed(() => {
-            const monthIndex = months.value.indexOf(currentMonth.value);
-            return rowData.value.filter(row => {
+    data() {
+        return {
+            auth: null,
+            months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            currentMonth: '',
+            currentYear: new Date().getFullYear(),
+            categories: [
+                'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts',
+                'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping',
+                'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities'
+            ],
+            rowData: [],
+            gridApi: null,
+            currentPage: 1,
+            totalPages: 1,
+            selectedTeamId: null,
+            ownedTeams: [],
+            memberTeams: [],
+            errorMessage: null, // New property for storing error messages
+        };
+    },
+    computed: {
+        filteredMemberTeams() {
+            return this.memberTeams.filter(team => !this.ownedTeams.some(ownedTeam => ownedTeam.id === team.id));
+        },
+        allTeams() {
+            return [...this.ownedTeams, ...this.memberTeams];
+        },
+        filteredRowData() {
+            const monthIndex = this.months.indexOf(this.currentMonth);
+            return this.rowData.filter(row => {
                 const rowDate = new Date(row.date);
-                return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === currentYear.value;
+                return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === this.currentYear;
             });
-        });
-
-        const totalIncome = computed(() => {
-            return filteredRowData.value
+        },
+        totalIncome() {
+            return this.filteredRowData
                 .filter(row => row.type === 'Income')
                 .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-        });
-
-        const totalExpenses = computed(() => {
-            return filteredRowData.value
+        },
+        totalExpenses() {
+            return this.filteredRowData
                 .filter(row => row.type === 'Expense')
                 .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-        });
-
-        const netAmount = computed(() => {
-            return totalIncome.value - totalExpenses.value;
-        });
-
-        const totalNetAllMonths = computed(() => {
-            return rowData.value.reduce((sum, row) => {
+        },
+        netAmount() {
+            return this.totalIncome - this.totalExpenses;
+        },
+        totalNetAllMonths() {
+            return this.rowData.reduce((sum, row) => {
                 if (row.type === 'Income') {
                     return sum + (Number(row.amount) || 0);
                 } else if (row.type === 'Expense') {
@@ -115,155 +147,202 @@ export default {
                 }
                 return sum;
             }, 0);
-        });
+        },
+    },
+    methods: {
+        async fetchUserTeams() {
+            try {
+                const response = await axios.get('/user/teams');
+                console.log('Full API Response:', response);
 
-        const getCsrfToken = () => {
+                if (response.data && response.data.ownedTeams && response.data.memberTeams) {
+                    this.ownedTeams = response.data.ownedTeams;
+                    this.memberTeams = response.data.memberTeams;
+                    console.log('Owned Teams set:', this.ownedTeams);
+                    console.log('Member Teams set:', this.memberTeams);
+                } else {
+                    console.error('Unexpected response structure:', response.data);
+                    this.showError('Unexpected response structure when fetching teams.');
+                }
+            } catch (error) {
+                console.error('Error fetching user teams:', error);
+                this.handleAxiosError(error, 'Error fetching user teams');
+            }
+        },
+
+        getCsrfToken() {
             const token = document.querySelector('meta[name="csrf-token"]');
             return token ? token.getAttribute('content') : null;
-        };
-
-        const setupAxios = () => {
-            const token = getCsrfToken();
+        },
+        setupAxios() {
+            const token = this.getCsrfToken();
             if (token) {
                 axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
             } else {
                 console.warn('CSRF token not found');
+                this.showError('CSRF token not found. Please refresh the page and try again.');
             }
-        };
-
-        const fetchTransactions = async () => {
+        },
+        async fetchTransactions() {
             try {
-                setupAxios();
-                const response = await axios.get('/transactions');
-                rowData.value = response.data;
-                updatePaginationState();
+                this.setupAxios();
+                const response = await axios.get('/transactions', {
+                    params: {
+                        month: this.months.indexOf(this.currentMonth) + 1,
+                        year: this.currentYear,
+                        team_id: this.selectedTeamId,
+                    },
+                });
+                console.log('Fetched transactions:', response.data);
+                this.rowData = response.data;
+                console.log('Updated rowData:', this.rowData);
+                this.updatePaginationState();
             } catch (error) {
                 console.error('Error fetching transactions:', error);
+                this.handleAxiosError(error, 'Error fetching transactions');
             }
-        };
-
-        const onCellValueChanged = async (event) => {
+        },
+        async onCellValueChanged(event) {
             try {
-                setupAxios();
-                await axios.put(`/transactions/${event.data.id}`, event.data);
+                this.setupAxios();
+                await axios.put(`/transactions/${event.data.id}`, {
+                    ...event.data,
+                    team_id: this.selectedTeamId
+                });
                 console.log('Transaction updated successfully');
             } catch (error) {
                 console.error('Error updating transaction:', error);
+                this.handleAxiosError(error, 'Error updating transaction');
             }
-        };
-
-        const addNewEntry = async (newEntry) => {
+        },
+        async addNewEntry(newEntry) {
             try {
-                setupAxios();
+                this.setupAxios();
+                newEntry.team_id = this.selectedTeamId;
                 const response = await axios.post('/transactions', newEntry);
-                rowData.value = [...rowData.value, response.data];
-                updatePaginationState();
+                this.rowData = [...this.rowData, response.data];
+                this.updatePaginationState();
             } catch (error) {
                 console.error('Error adding new transaction:', error);
+                this.handleAxiosError(error, 'Error adding new transaction');
             }
-        };
-
-        const deleteEntry = async (id) => {
+        },
+        async deleteEntry(id) {
             if (confirm('Are you sure you want to delete this entry?')) {
                 try {
-                    setupAxios();
+                    this.setupAxios();
                     await axios.delete(`/transactions/${id}`);
-                    rowData.value = rowData.value.filter(row => row.id !== id);
+                    this.rowData = this.rowData.filter(row => row.id !== id);
                     console.log('Transaction deleted successfully');
-                    updatePaginationState();
+                    this.updatePaginationState();
                 } catch (error) {
                     console.error('Error deleting transaction:', error);
+                    this.handleAxiosError(error, 'Error deleting transaction');
                 }
             }
-        };
-
-        const setCurrentMonth = (month) => {
-            currentMonth.value = month;
-            if (currentMonth.value === 'January' && months.value.indexOf(month) === 0) {
-                currentYear.value++;
-            } else if (currentMonth.value === 'December' && months.value.indexOf(month) === 11) {
-                currentYear.value--;
+        },
+        setCurrentMonth(month) {
+            this.currentMonth = month;
+            if (this.currentMonth === 'January' && this.months.indexOf(month) === 0) {
+                this.currentYear++;
+            } else if (this.currentMonth === 'December' && this.months.indexOf(month) === 11) {
+                this.currentYear--;
             }
-            updatePaginationState();
-        };
-
-        const onGridReady = (params) => {
-            gridApi.value = params.api;
-            updatePaginationState();
-        };
-
-        const updatePaginationState = () => {
-            if (gridApi.value) {
-                currentPage.value = gridApi.value.paginationGetCurrentPage() + 1;
-                totalPages.value = gridApi.value.paginationGetTotalPages();
+            this.fetchTransactions();
+        },
+        onGridReady(params) {
+            this.gridApi = params.api;
+            this.updatePaginationState();
+        },
+        updatePaginationState() {
+            if (this.gridApi) {
+                this.currentPage = this.gridApi.paginationGetCurrentPage() + 1;
+                this.totalPages = this.gridApi.paginationGetTotalPages();
             }
-        };
-
-        const onBtFirst = () => {
-            gridApi.value.paginationGoToFirstPage();
-            updatePaginationState();
-        };
-
-        const onBtLast = () => {
-            gridApi.value.paginationGoToLastPage();
-            updatePaginationState();
-        };
-
-        const onBtNext = () => {
-            gridApi.value.paginationGoToNextPage();
-            updatePaginationState();
-        };
-
-        const onBtPrevious = () => {
-            gridApi.value.paginationGoToPreviousPage();
-            updatePaginationState();
-        };
-
-        const handleUploadedTransactions = (transactions) => {
-            rowData.value = [...rowData.value, ...transactions];
-            updatePaginationState();
-        };
-
-        onMounted(() => {
-            fetchTransactions();
-            const now = new Date();
-            setCurrentMonth(months.value[now.getMonth()]);
-            currentYear.value = now.getFullYear();
-            console.log('SpreadsheetComponent mounted, auth:', auth.value);
-        });
-
-        watch(auth, (newAuth) => {
-            console.log('Auth changed:', newAuth);
-        }, { deep: true });
-        console.log('Initial auth data:', auth.value);
-
-
-        return {
-            months,
-            currentMonth,
-            currentYear,
-            rowData,
-            filteredRowData,
-            totalIncome,
-            totalExpenses,
-            netAmount,
-            totalNetAllMonths,
-            categories,
-            currentPage,
-            totalPages,
-            onCellValueChanged,
-            addNewEntry,
-            deleteEntry,
-            setCurrentMonth,
-            onGridReady,
-            onBtFirst,
-            onBtLast,
-            onBtNext,
-            onBtPrevious,
-            handleUploadedTransactions,
-            auth
-        };
-    }
+        },
+        onBtFirst() {
+            this.gridApi.paginationGoToFirstPage();
+            this.updatePaginationState();
+        },
+        onBtLast() {
+            this.gridApi.paginationGoToLastPage();
+            this.updatePaginationState();
+        },
+        onBtNext() {
+            this.gridApi.paginationGoToNextPage();
+            this.updatePaginationState();
+        },
+        onBtPrevious() {
+            this.gridApi.paginationGoToPreviousPage();
+            this.updatePaginationState();
+        },
+        handleUploadedTransactions(transactions) {
+            const updatedTransactions = transactions.map(transaction => ({
+                ...transaction,
+                team_id: this.selectedTeamId
+            }));
+            this.rowData = [...this.rowData, ...updatedTransactions];
+            this.updatePaginationState();
+        },
+        // New method to show error messages
+        showError(message) {
+            this.errorMessage = message;
+            // Optionally, you can set a timer to clear the error message after a few seconds
+            setTimeout(() => {
+                this.clearError();
+            }, 5000);
+        },
+        // New method to clear error messages
+        clearError() {
+            this.errorMessage = null;
+        },
+        // New method to handle Axios errors
+        handleAxiosError(error, defaultMessage) {
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                this.showError(`${defaultMessage}: ${error.response.data.message || error.response.statusText}`);
+            } else if (error.request) {
+                // The request was made but no response was received
+                this.showError(`${defaultMessage}: No response received from server. Please check your internet connection.`);
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                this.showError(`${defaultMessage}: ${error.message}`);
+            }
+        },
+    },
+    created() {
+        console.log('Component created');
+        this.fetchUserTeams();
+    },
+    mounted() {
+        console.log('Component mounted');
+        if (this.ownedTeams.length === 0 && this.memberTeams.length === 0) {
+            console.log('Teams not loaded in created hook, fetching again');
+            this.fetchUserTeams();
+        }
+        const page = usePage();
+        this.auth = page.props.auth;
+        this.fetchUserTeams();
+        this.fetchTransactions();
+        const now = new Date();
+        this.setCurrentMonth(this.months[now.getMonth()]);
+        this.currentYear = now.getFullYear();
+        console.log('SpreadsheetComponent mounted, auth:', this.auth);
+    },
+    watch: {
+        auth: {
+            handler(newAuth) {
+                console.log('Auth changed:', newAuth);
+            },
+            deep: true
+        },
+        selectedTeamId: {
+            handler() {
+                this.fetchTransactions();
+            }
+        }
+    },
 };
 </script>
 

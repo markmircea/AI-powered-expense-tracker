@@ -10,7 +10,8 @@ class CreateTransactionsTable extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->string('user');
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('team_id')->nullable()->constrained();
             $table->string('description');
             $table->decimal('amount', 10, 2);
             $table->enum('type', ['Income', 'Expense']);

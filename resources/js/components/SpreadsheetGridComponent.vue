@@ -11,7 +11,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { AgGridVue } from 'ag-grid-vue3';
 
 export default {
@@ -42,10 +42,31 @@ export default {
 
         const filteredRowData = computed(() => {
             const monthIndex = props.months.indexOf(props.currentMonth);
-            return props.rowData.filter(row => {
+            const filtered = props.rowData.filter(row => {
                 const rowDate = new Date(row.date);
                 return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === props.currentYear;
             });
+            console.log('Filtered Row Data:', filtered.map(row => ({
+                id: row.id,
+                description: row.description,
+                amount: row.amount,
+                type: row.type,
+                category: row.category,
+                date: row.date
+            })));
+            return filtered;
+        });
+
+        // Watch for changes in filteredRowData
+        watch(filteredRowData, (newValue) => {
+            console.log('filteredRowData changed:', newValue.map(row => ({
+                id: row.id,
+                description: row.description,
+                amount: row.amount,
+                type: row.type,
+                category: row.category,
+                date: row.date
+            })));
         });
 
         const formatDate = (date) => {
@@ -90,32 +111,11 @@ export default {
 
         const columnDefs = ref([
             {
-                headerName: "",
-                field: "user",
+                headerName: "Description",
+                field: "description",
                 editable: true,
-                cellRenderer: params => {
-                    const value = params.value.toLowerCase();
-                    const icon = value === 'mark' ? 'M' : 'R';
-                    const className = value === 'mark' ? 'mark' : 'roxi';
-                    return `<div class="flex items-center justify-center h-full">
-                    <span class="user-icon ${className}">${icon}</span>
-                  </div>`;
-                },
-                cellEditor: 'agSelectCellEditor',
-                cellEditorParams: {
-                    values: ['Mark', 'Roxi', 'Roxy']
-                },
-                valueFormatter: params => {
-                    return params.value.toLowerCase() === 'roxy' ? 'Roxi' : params.value;
-                },
-                width: 60,
-                maxWidth: 60,
-                minWidth: 60,
-                resizable: false,
-                suppressSizeToFit: true,
-                cellStyle: { padding: '0' }
+                minWidth: 200
             },
-            { headerName: "Description", field: "description", editable: true, minWidth: 200 },
             {
                 headerName: "Amount",
                 field: "amount",
@@ -223,6 +223,12 @@ export default {
         const onGridReady = (params) => {
             gridApi.value = params.api;
             emit('grid-ready', params);
+
+            // Log rendered rows
+            console.log('Grid Ready. Rendered Rows:');
+            params.api.forEachNode((node, index) => {
+                console.log(`Row ${index}:`, node.data);
+            });
         };
 
         return {

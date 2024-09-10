@@ -134,6 +134,7 @@ class BankStatementController extends Controller
     {
         $savedTransactions = [];
         $currentDate = Carbon::now()->format('Y-m-d');
+        $userId = auth()->id(); // Get the current authenticated user's ID
 
         if (!isset($analysis['transactions']) || !is_array($analysis['transactions'])) {
             Log::error('Invalid analysis format received from AI: ' . json_encode($analysis));
@@ -143,12 +144,14 @@ class BankStatementController extends Controller
         foreach ($analysis['transactions'] as $transaction) {
             try {
                 $savedTransaction = Transaction::create([
+                    'user_id' => $userId, // Set the user_id
                     'date' => $transaction['date'] ?? $currentDate,
                     'description' => $transaction['description'] ?? 'No description',
                     'amount' => $transaction['amount'] ?? 0,
                     'category' => $transaction['category'] ?? 'Uncategorized',
                     'type' => strtolower($transaction['type'] ?? 'expense'),
-                    'user' => 'Auto',
+                    // Remove or comment out the 'user' field if it's not in your transactions table
+                    // 'user' => 'Auto',
                 ]);
 
                 $savedTransactions[] = $savedTransaction;

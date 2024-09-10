@@ -12,33 +12,37 @@ class TransactionController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Transaction::where('user_id', $user->id);
+        \Log::info("User ID: " . $user->id);
 
         if ($request->has('team_id')) {
             $teamId = $request->input('team_id');
-            if ($teamId === 'null' || $teamId === null) {
-                // Personal transactions
-                $query->whereNull('team_id');
-            } else {
-                // Team transactions
-                $team = $user->teams()->findOrFail($teamId);
-                $query->where('team_id', $team->id);
+            \Log::info("Requested Team ID: " . $teamId);
+
+            // Check if user is a member of the team or owns the team
+            $team = $user->teams()->find($teamId) ?? $user->ownedTeams()->find($teamId);
+
+            if (!$team) {
+                \Log::error("User " . $user->id . " attempted to access Team " . $teamId . " but is not a member or owner.");
+                return response()->json(['error' => 'You do not have access to this team'], 403);
             }
+
+            // Fetch all transactions for the team, regardless of who created them
+            $query = Transaction::where('team_id', $teamId);
         } else {
-            // Default to personal transactions if no team_id is provided
-            $query->whereNull('team_id');
+            // Personal transactions
+            $query = Transaction::where('user_id', $user->id)->whereNull('team_id');
         }
 
+        // Apply date filters if provided
         if ($request->has('month') && $request->has('year')) {
             $month = $request->input('month');
             $year = $request->input('year');
-
             $query->whereYear('date', $year)
                   ->whereMonth('date', $month);
         }
 
         $transactions = $query->get();
-
+        \Log::info("Number of transactions fetched: " . $transactions->count());
         return response()->json($transactions);
     }
 

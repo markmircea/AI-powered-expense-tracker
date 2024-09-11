@@ -59,7 +59,10 @@
                 <div class="mt-6" data-aos="fade-up">
                     <SpreadsheetGridComponent :rowData="rowData" :currentMonth="currentMonth" :currentYear="currentYear"
                         :months="months" @cell-value-changed="onCellValueChanged" @grid-ready="onGridReady"
-                        @delete-entry="deleteEntry" />
+                        @delete-entries="deleteEntries"
+                        />
+
+
                 </div>
 
                 <PaginationComponent :currentPage="currentPage" :totalPages="totalPages" @first="onBtFirst"
@@ -235,20 +238,20 @@ export default {
                 this.handleAxiosError(error, 'Error adding new transaction');
             }
         },
-        async deleteEntry(id) {
-            if (confirm('Are you sure you want to delete this entry?')) {
-                try {
-                    this.setupAxios();
-                    await axios.delete(`/transactions/${id}`);
-                    this.rowData = this.rowData.filter(row => row.id !== id);
-                    console.log('Transaction deleted successfully');
-                    this.updatePaginationState();
-                } catch (error) {
-                    console.error('Error deleting transaction:', error);
-                    this.handleAxiosError(error, 'Error deleting transaction');
-                }
-            }
-        },
+        async deleteEntries(ids) {
+      if (confirm(`Are you sure you want to delete ${ids.length} entries?`)) {
+        try {
+          this.setupAxios();
+          await axios.post('/transactions/delete-multiple', { ids });
+          this.rowData = this.rowData.filter(row => !ids.includes(row.id));
+          console.log('Transactions deleted successfully');
+          this.updatePaginationState();
+        } catch (error) {
+          console.error('Error deleting transactions:', error);
+          this.handleAxiosError(error, 'Error deleting transactions');
+        }
+      }
+    },
         setCurrentMonth(month) {
             this.currentMonth = month;
             if (this.currentMonth === 'January' && this.months.indexOf(month) === 0) {

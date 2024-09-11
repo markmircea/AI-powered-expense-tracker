@@ -105,4 +105,38 @@ class TransactionController extends Controller
         $transaction->delete();
         return response()->json(null, 204);
     }
+
+    public function destroyMultiple(Request $request)
+    {
+        $validatedData = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:transactions,id',
+        ]);
+
+        $user = Auth::user();
+        $successCount = 0;
+        $failCount = 0;
+
+        foreach ($validatedData['ids'] as $id) {
+            $transaction = Transaction::find($id);
+
+            if (!$transaction) {
+                $failCount++;
+                continue;
+            }
+
+            // Check if the user has permission to delete this transaction
+            if ($transaction->user_id === $user->id ||
+                ($transaction->team_id && $user->teams->contains($transaction->team_id))) {
+                $transaction->delete();
+                $successCount++;
+            } else {
+                $failCount++;
+            }
+        }
+
+        return response()->json([
+            'message' => "$successCount transactions deleted successfully. $failCount deletions failed due to permissions.",
+        ]);
+    }
 }

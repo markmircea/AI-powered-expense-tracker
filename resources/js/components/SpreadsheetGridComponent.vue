@@ -1,10 +1,28 @@
 <template>
     <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col">
+        <div class="p-4 flex justify-between items-center">
+            <button
+                @click="deleteSelected"
+                class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+                :disabled="selectedRows.length === 0"
+            >
+                Delete Selected ({{ selectedRows.length }})
+            </button>
+        </div>
         <div class="flex-grow custom-scrollbar" style="height: calc(100vh - 400px); min-height: 400px;">
-            <ag-grid-vue class="ag-theme-alpine h-full w-full" :columnDefs="columnDefs"
-                :rowData="filteredRowData" :defaultColDef="defaultColDef" :getRowStyle="getRowStyle"
-                @cell-value-changed="onCellValueChanged" :pagination="true" :paginationPageSize="20"
-                :suppressPaginationPanel="true" @grid-ready="onGridReady">
+            <ag-grid-vue class="ag-theme-alpine h-full w-full"
+                :columnDefs="columnDefs"
+                :rowData="filteredRowData"
+                :defaultColDef="defaultColDef"
+                :getRowStyle="getRowStyle"
+                @cell-value-changed="onCellValueChanged"
+                :pagination="true"
+                :paginationPageSize="20"
+                :suppressPaginationPanel="true"
+                @grid-ready="onGridReady"
+                :rowSelection="'multiple'"
+                @selection-changed="onSelectionChanged"
+            >
             </ag-grid-vue>
         </div>
     </div>
@@ -36,9 +54,10 @@ export default {
             required: true
         }
     },
-    emits: ['cell-value-changed', 'grid-ready', 'delete-entry'],
+    emits: ['cell-value-changed', 'grid-ready', 'delete-entries'],
     setup(props, { emit }) {
         const gridApi = ref(null);
+        const selectedRows = ref([]);
 
         const filteredRowData = computed(() => {
             const monthIndex = props.months.indexOf(props.currentMonth);
@@ -46,27 +65,12 @@ export default {
                 const rowDate = new Date(row.date);
                 return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === props.currentYear;
             });
-            console.log('Filtered Row Data:', filtered.map(row => ({
-                id: row.id,
-                description: row.description,
-                amount: row.amount,
-                type: row.type,
-                category: row.category,
-                date: row.date
-            })));
+            console.log('Filtered Row Data:', filtered);
             return filtered;
         });
 
-        // Watch for changes in filteredRowData
         watch(filteredRowData, (newValue) => {
-            console.log('filteredRowData changed:', newValue.map(row => ({
-                id: row.id,
-                description: row.description,
-                amount: row.amount,
-                type: row.type,
-                category: row.category,
-                date: row.date
-            })));
+            console.log('filteredRowData changed:', newValue);
         });
 
         const formatDate = (date) => {
@@ -110,6 +114,15 @@ export default {
         };
 
         const columnDefs = ref([
+            {
+                headerName: '',
+                field: 'id',
+                checkboxSelection: true,
+                headerCheckboxSelection: true,
+                width: 50,
+                minWidth: 50,
+                maxWidth: 50,
+            },
             {
                 headerName: "Description",
                 field: "description",
@@ -168,31 +181,6 @@ export default {
                 },
                 cellEditorPopup: true,
                 minWidth: 150
-            },
-            {
-                headerName: "",
-                field: "id",
-                width: 40,
-                maxWidth: 40,
-                minWidth: 40,
-                cellRenderer: params => {
-                    return `<div class="h-full w-full flex items-center justify-center">
-                <button class="delete-btn" data-id="${params.value}">
-                  <i class="fas fa-trash-alt text-red-500"></i>
-                </button>
-              </div>`;
-                },
-                onCellClicked: params => {
-                    if (params.event.target.classList.contains('delete-btn') ||
-                        params.event.target.closest('.delete-btn')) {
-                        emit('delete-entry', params.data.id);
-                    }
-                },
-                sortable: false,
-                filter: false,
-                editable: false,
-                suppressSizeToFit: true,
-                cellStyle: { padding: '0' }
             }
         ]);
 
@@ -224,11 +212,22 @@ export default {
             gridApi.value = params.api;
             emit('grid-ready', params);
 
-            // Log rendered rows
             console.log('Grid Ready. Rendered Rows:');
             params.api.forEachNode((node, index) => {
                 console.log(`Row ${index}:`, node.data);
             });
+        };
+
+        const onSelectionChanged = () => {
+            selectedRows.value = gridApi.value.getSelectedRows();
+        };
+
+        const deleteSelected = () => {
+            if (selectedRows.value.length > 0) {
+                const selectedIds = selectedRows.value.map(row => row.id);
+                emit('delete-entries', selectedIds);
+                selectedRows.value = [];
+            }
         };
 
         return {
@@ -237,7 +236,10 @@ export default {
             defaultColDef,
             getRowStyle,
             onCellValueChanged,
-            onGridReady
+            onGridReady,
+            onSelectionChanged,
+            selectedRows,
+            deleteSelected
         };
     }
 }

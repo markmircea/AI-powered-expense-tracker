@@ -47,6 +47,8 @@ Route::middleware('auth')->group(function () {
 
     // Explicitly define the DELETE route for teams
     Route::delete('/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
+    Route::post('/transactions/delete-multiple', [TransactionController::class, 'destroyMultiple']);
+
 
     Route::get('/user', function (Request $request) {
         return $request->user();

@@ -69,7 +69,17 @@ export default {
         months: {
             type: Array,
             required: true
-        }
+        },
+        currentUserId: {
+            type: Number,
+            required: true
+        },
+        selectedTeamId: {
+            type: Number,
+            required: false,
+            default: null
+        },
+        auth: Object
     },
     emits: ['add-new-entry'],
     setup(props, { emit }) {
@@ -82,7 +92,9 @@ export default {
             amount: null,
             type: '',
             category: '',
-            date: computed(() => new Date(props.currentYear, props.months.indexOf(props.currentMonth), 1).toISOString().split('T')[0])
+            date: computed(() => new Date(props.currentYear, props.months.indexOf(props.currentMonth), 1).toISOString().split('T')[0]),
+            user_id: props.currentUserId,
+            team_id: props.selectedTeamId
         });
 
         const toggleNewEntryForm = () => {
@@ -107,7 +119,9 @@ export default {
                 amount: null,
                 type: '',
                 category: '',
-                date: new Date(props.currentYear, props.months.indexOf(props.currentMonth), 1).toISOString().split('T')[0]
+                date: new Date(props.currentYear, props.months.indexOf(props.currentMonth), 1).toISOString().split('T')[0],
+                user_id: props.auth.user.id,
+                team_id: props.selectedTeamId
             };
         };
 

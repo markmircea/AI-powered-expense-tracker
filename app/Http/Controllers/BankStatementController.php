@@ -100,7 +100,7 @@ class BankStatementController extends Controller
             $response = OpenAI::chat()->create([
                 'model' => 'gpt-4o-mini',
                 'messages' => [
-                    ['role' => 'system', 'content' => "You are a financial analyst tasked with extracting transaction data from bank statements. Extract each transaction's date (in YYYY-MM-DD format), description (analyze all of the text for each entry and include the vendor), amount, category (based on the name and description and using one these  'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts', 'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping', 'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities') , and whether it's income or expense saved as type. Provide the output as a JSON array of transactions."],
+                    ['role' => 'system', 'content' => "You are a financial analyst tasked with extracting transaction data from bank statements. Extract each transaction's date (in YYYY-MM-DD format), description (analyze all of the text for each entry and include the vendor), amount, category (based on the name and description and using one these  'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts', 'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping', 'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities') , and whether it's 'Income' or 'Expense' saved as type. Provide the output as a JSON array of transactions."],
                     ['role' => 'user', 'content' => "Here's the bank statement content:\n\n$content"]
                 ],
                 'temperature' => 0.7,
@@ -163,7 +163,7 @@ class BankStatementController extends Controller
                     'description' => $transaction['description'] ?? 'No description',
                     'amount' => $transaction['amount'] ?? 0,
                     'category' => $transaction['category'] ?? 'Uncategorized',
-                    'type' => strtolower($transaction['type'] ?? 'expense'),
+                    'type' => $transaction['type'] ?? 'Expense',
                 ]);
 
                 $savedTransactions[] = $savedTransaction;

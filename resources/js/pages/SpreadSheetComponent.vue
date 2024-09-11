@@ -52,7 +52,7 @@
 />                    </div>
                 </div>
 
-                <NewEntryFormComponent :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
+                <NewEntryFormComponent :auth="auth" :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
                     :months="months" :selectedTeamId="selectedTeamId" @add-new-entry="addNewEntry" class="mt-6"
                     data-aos="fade-up" />
 

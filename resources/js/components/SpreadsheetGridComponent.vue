@@ -1,9 +1,11 @@
 <template>
-    <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col">
-        <div class="p-4 flex justify-between items-center">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col animate-fadeIn">
+        <div class="p-4 flex flex-wrap justify-between items-center bg-gradient-to-r from-blue-500 to-green-500">
+            <h2 class="text-2xl font-bold text-white mb-2 sm:mb-0">Financial Entries</h2>
             <button
                 @click="deleteSelected"
-                class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+                class="btn btn-primary"
+                :class="{ 'opacity-50 cursor-not-allowed': selectedRows.length === 0 }"
                 :disabled="selectedRows.length === 0"
             >
                 Delete Selected ({{ selectedRows.length }})
@@ -19,6 +21,7 @@
                 @grid-ready="onGridReady"
                 :rowSelection="'multiple'"
                 @selection-changed="onSelectionChanged"
+                :animateRows="true"
             >
             </ag-grid-vue>
         </div>
@@ -124,7 +127,8 @@ export default {
                 headerName: "Description",
                 field: "description",
                 editable: true,
-                minWidth: 200
+                minWidth: 200,
+                cellRenderer: params => `<div class="animate-slideIn">${params.value}</div>`
             },
             {
                 headerName: "Amount",
@@ -132,7 +136,8 @@ export default {
                 editable: true,
                 valueParser: params => Number(params.newValue),
                 valueFormatter: params => formatCurrency(params.value),
-                minWidth: 120
+                minWidth: 120,
+                cellRenderer: params => `<div class="font-bold ${params.value >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(params.value)}</div>`
             },
             {
                 headerName: "Type",
@@ -144,7 +149,7 @@ export default {
                 },
                 cellRenderer: params => {
                     const icon = params.value === 'Income' ? 'fa-arrow-up text-green-600' : 'fa-arrow-down text-red-600';
-                    return `<i class="fas ${icon} mr-2"></i>${params.value}`;
+                    return `<div class="flex items-center"><i class="fas ${icon} mr-2"></i>${params.value}</div>`;
                 },
                 minWidth: 100
             },
@@ -160,7 +165,7 @@ export default {
                 },
                 cellRenderer: params => {
                     const icon = getCategoryIcon(params.value);
-                    return `<i class="fas ${icon} mr-2"></i>${params.value}`;
+                    return `<div class="flex items-center"><i class="fas ${icon} mr-2"></i>${params.value}</div>`;
                 },
                 minWidth: 150
             },
@@ -194,11 +199,11 @@ export default {
 
         const getRowStyle = (params) => {
             if (params.data.type === 'Income') {
-                return { background: 'rgba(230, 255, 237, 0.5)' };
+                return { background: 'rgba(230, 255, 237, 0.5)', transition: 'all 0.3s' };
             } else if (params.data.type === 'Expense') {
-                return { background: 'rgba(255, 235, 238, 0.5)' };
+                return { background: 'rgba(255, 235, 238, 0.5)', transition: 'all 0.3s' };
             }
-            return null;
+            return { transition: 'all 0.3s' };
         };
 
         const onCellValueChanged = (event) => {
@@ -241,3 +246,30 @@ export default {
     }
 }
 </script>
+
+<style scoped>
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--primary-color);
+    border-radius: 3px;
+}
+
+.ag-theme-alpine {
+    --ag-header-background-color: #f3f4f6;
+    --ag-header-foreground-color: #374151;
+    --ag-header-cell-hover-background-color: #e5e7eb;
+    --ag-row-hover-color: #f9fafb;
+}
+</style>

@@ -1,351 +1,436 @@
 <template>
     <div class="min-h-screen bg-gray-100 flex flex-col">
-        <HeaderComponent :currentMonth="currentMonth" :currentYear="currentYear" :auth="auth" />
-        <main class="flex-grow p-4 sm:p-6 lg:p-8">
-            <div class="max-w-7xl mx-auto">
-                <!-- Error message display -->
-                <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                    <strong class="font-bold">Error:</strong>
-                    <span class="block sm:inline">{{ errorMessage }}</span>
-                    <span class="absolute top-0 bottom-0 right-0 px-4 py-3" @click="clearError">
-                        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
-                    </span>
-                </div>
-
-                <MonthTabsComponent :months="months" :currentMonth="currentMonth" @update:currentMonth="setCurrentMonth"
-                    data-aos="fade-down" />
-
-                <select
-                    id="team-select"
-                    v-model="selectedTeamId"
-                    @change="fetchTransactions"
-                    class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                >
-                    <option :value="null">Personal Transactions</option>
-                    <optgroup label="Teams I Own">
-                        <option v-for="team in ownedTeams" :key="'owned-' + team.id" :value="team.id">
-                            {{ team.name }} (Owner)
-                        </option>
-                    </optgroup>
-                    <optgroup label="Teams I'm a Member Of">
-                        <option v-for="team in filteredMemberTeams" :key="'member-' + team.id" :value="team.id">
-                            {{ team.name }}
-                        </option>
-                    </optgroup>
-                </select>
-
-                <SummaryComponent :totalIncome="totalIncome" :totalExpenses="totalExpenses" :netAmount="netAmount"
-                    :totalNetAllMonths="totalNetAllMonths" data-aos="fade-up" />
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    <div class="bg-white rounded-lg shadow p-6" data-aos="fade-right">
-                        <h2 class="text-lg font-semibold mb-4">Expense Categories for {{ currentMonth }} {{ currentYear }}</h2>
-                        <CategoryPieChart :transactions="filteredRowData" :currentMonth="months.indexOf(currentMonth)"
-                            :currentYear="currentYear" />
-                    </div>
-
-                    <div class="bg-white rounded-lg shadow p-6" data-aos="fade-left">
-                        <h2 class="text-lg font-semibold mb-4">Upload Bank Statement</h2>
-                        <BankStatementUploadComponent
-  @transactions-updated="handleUploadedTransactions"
-  :selectedTeamId="selectedTeamId"
-/>                    </div>
-                </div>
-
-                <NewEntryFormComponent :auth="auth" :categories="categories" :currentMonth="currentMonth" :currentYear="currentYear"
-                    :months="months" :selectedTeamId="selectedTeamId" @add-new-entry="addNewEntry" class="mt-6"
-                    data-aos="fade-up" />
-
-                <div class="mt-6" data-aos="fade-up">
-                    <SpreadsheetGridComponent :rowData="rowData" :currentMonth="currentMonth" :currentYear="currentYear"
-                        :months="months" @cell-value-changed="onCellValueChanged" @grid-ready="onGridReady"
-                        @delete-entries="deleteEntries"
-                        />
-
-
-                </div>
-
-                <PaginationComponent :currentPage="currentPage" :totalPages="totalPages" @first="onBtFirst"
-                    @previous="onBtPrevious" @next="onBtNext" @last="onBtLast" class="mt-4" data-aos="fade-up" />
+      <HeaderComponent :currentMonth="currentMonth" :currentYear="currentYear" :auth="auth" />
+      <main class="flex-grow p-4 sm:p-6 lg:p-8">
+        <div class="max-w-7xl mx-auto space-y-6">
+          <!-- Error message display -->
+          <transition name="fade">
+            <div v-if="errorMessage" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 animate-slideIn" role="alert">
+              <strong class="font-bold">Error:</strong>
+              <span class="block sm:inline">{{ errorMessage }}</span>
+              <button @click="clearError" class="absolute top-0 right-0 px-4 py-3">
+                <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+              </button>
             </div>
-        </main>
-    </div>
-</template>
-<script>
-import { ref, provide } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-import axios from 'axios';
-import HeaderComponent from '../components/HeaderComponent.vue';
-import MonthTabsComponent from '../components/MonthTabsComponent.vue';
-import SummaryComponent from '../components/SummaryComponent.vue';
-import CategoryPieChart from '../components/CategoryPieChart.vue';
-import NewEntryFormComponent from '../components/NewEntryFormComponent.vue';
-import SpreadsheetGridComponent from '../components/SpreadsheetGridComponent.vue';
-import PaginationComponent from '../components/PaginationComponent.vue';
-import BankStatementUploadComponent from '../components/BankStatementUploadComponent.vue';
+          </transition>
 
-export default {
+          <MonthTabsComponent
+            :months="months"
+            :currentMonth="currentMonth"
+            @update:currentMonth="setCurrentMonth"
+            class="animate-fadeIn"
+            data-aos="fade-down"
+          />
+
+          <div class="glass rounded-lg p-4 animate-fadeIn" data-aos="fade-down" >
+            <select
+              id="team-select"
+              v-model="selectedTeamId"
+              @change="fetchTransactions"
+
+              class="w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md transition-all duration-300"
+            >
+              <option :value="null">Personal Transactions</option>
+              <optgroup label="Teams I Own">
+                <option v-for="team in ownedTeams" :key="'owned-' + team.id" :value="team.id">
+                  {{ team.name }} (Owner)
+                </option>
+              </optgroup>
+              <optgroup label="Teams I'm a Member Of">
+                <option v-for="team in filteredMemberTeams" :key="'member-' + team.id" :value="team.id">
+                  {{ team.name }}
+                </option>
+              </optgroup>
+            </select>
+          </div>
+
+          <SummaryComponent
+            :totalIncome="totalIncome"
+            :totalExpenses="totalExpenses"
+            :netAmount="netAmount"
+            :totalNetAllMonths="totalNetAllMonths"
+            class="animate-fadeIn"
+            data-aos="fade-in"
+          />
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="animate-fadeIn">
+              <CategoryPieChart
+                :transactions="filteredRowData"
+                :currentMonth="months.indexOf(currentMonth)"
+                :currentYear="currentYear"
+                :currentMonthText="currentMonth"
+                data-aos="fade-right"
+              />
+            </div>
+
+            <BankStatementUploadComponent
+              @transactions-updated="handleUploadedTransactions"
+              :selectedTeamId="selectedTeamId"
+              class="animate-fadeIn"
+              data-aos="fade-left"
+            />
+          </div>
+
+          <NewEntryFormComponent
+            :auth="auth"
+            :categories="categories"
+            :currentMonth="currentMonth"
+            :currentYear="currentYear"
+            :months="months"
+            :selectedTeamId="selectedTeamId"
+            @add-new-entry="addNewEntry"
+            class="animate-fadeIn"
+            data-aos="fade-up"
+          />
+
+          <div class="">
+            <SpreadsheetGridComponent
+              :rowData="rowData"
+              :currentMonth="currentMonth"
+              :currentYear="currentYear"
+              :months="months"
+              @cell-value-changed="onCellValueChanged"
+              @grid-ready="onGridReady"
+              @delete-entries="deleteEntries"
+              data-aos="fade-up"
+            />
+          </div>
+
+          <PaginationComponent
+            :currentPage="currentPage"
+            :totalPages="totalPages"
+            @first="onBtFirst"
+            @previous="onBtPrevious"
+            @next="onBtNext"
+            @last="onBtLast"
+            class="animate-fadeIn"
+            data-aos="fade-up"
+
+          />
+        </div>
+      </main>
+    </div>
+  </template>
+
+  <script>
+  import { ref, provide, computed } from 'vue';
+  import { usePage } from '@inertiajs/vue3';
+  import axios from 'axios';
+  import HeaderComponent from '../components/HeaderComponent.vue';
+  import MonthTabsComponent from '../components/MonthTabsComponent.vue';
+  import SummaryComponent from '../components/SummaryComponent.vue';
+  import CategoryPieChart from '../components/CategoryPieChart.vue';
+  import NewEntryFormComponent from '../components/NewEntryFormComponent.vue';
+  import SpreadsheetGridComponent from '../components/SpreadsheetGridComponent.vue';
+  import PaginationComponent from '../components/PaginationComponent.vue';
+  import BankStatementUploadComponent from '../components/BankStatementUploadComponent.vue';
+
+  export default {
     components: {
-        HeaderComponent,
-        MonthTabsComponent,
-        SummaryComponent,
-        CategoryPieChart,
-        NewEntryFormComponent,
-        SpreadsheetGridComponent,
-        PaginationComponent,
-        BankStatementUploadComponent
+      HeaderComponent,
+      MonthTabsComponent,
+      SummaryComponent,
+      CategoryPieChart,
+      NewEntryFormComponent,
+      SpreadsheetGridComponent,
+      PaginationComponent,
+      BankStatementUploadComponent
     },
     setup() {
-        const selectedTeamId = ref(null);
-        provide('selectedTeamId', selectedTeamId);
+      const selectedTeamId = ref(null);
+      provide('selectedTeamId', selectedTeamId);
 
-        return {
-            selectedTeamId,
-        };
-    },
-    data() {
-        return {
-            auth: null,
-            months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-            currentMonth: '',
-            currentYear: new Date().getFullYear(),
-            categories: [
-                'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts',
-                'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping',
-                'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities'
-            ],
-            rowData: [],
-            gridApi: null,
-            currentPage: 1,
-            totalPages: 1,
-            ownedTeams: [],
-            memberTeams: [],
-            errorMessage: null,
-        };
-    },
-    computed: {
-        filteredMemberTeams() {
-            return this.memberTeams.filter(team => !this.ownedTeams.some(ownedTeam => ownedTeam.id === team.id));
-        },
-        allTeams() {
-            return [...this.ownedTeams, ...this.memberTeams];
-        },
-        filteredRowData() {
-            const monthIndex = this.months.indexOf(this.currentMonth);
-            return this.rowData.filter(row => {
-                const rowDate = new Date(row.date);
-                return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === this.currentYear;
-            });
-        },
-        totalIncome() {
-            return this.filteredRowData
-                .filter(row => row.type === 'Income')
-                .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-        },
-        totalExpenses() {
-            return this.filteredRowData
-                .filter(row => row.type === 'Expense')
-                .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
-        },
-        netAmount() {
-            return this.totalIncome - this.totalExpenses;
-        },
-        totalNetAllMonths() {
-            return this.rowData.reduce((sum, row) => {
-                if (row.type === 'Income') {
-                    return sum + (Number(row.amount) || 0);
-                } else if (row.type === 'Expense') {
-                    return sum - (Number(row.amount) || 0);
-                }
-                return sum;
-            }, 0);
-        },
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const currentMonth = ref(months[new Date().getMonth()]);
+      const currentYear = ref(new Date().getFullYear());
+      const categories = [
+        'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts',
+        'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping',
+        'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities'
+      ];
+      const rowData = ref([]);
+      const gridApi = ref(null);
+      const currentPage = ref(1);
+      const totalPages = ref(1);
+      const ownedTeams = ref([]);
+      const memberTeams = ref([]);
+      const errorMessage = ref(null);
+
+      const filteredMemberTeams = computed(() => {
+        return memberTeams.value.filter(team => !ownedTeams.value.some(ownedTeam => ownedTeam.id === team.id));
+      });
+
+      const filteredRowData = computed(() => {
+        const monthIndex = months.indexOf(currentMonth.value);
+        return rowData.value.filter(row => {
+          const rowDate = new Date(row.date);
+          return rowDate.getMonth() === monthIndex && rowDate.getFullYear() === currentYear.value;
+        });
+      });
+
+      const totalIncome = computed(() => {
+        return filteredRowData.value
+          .filter(row => row.type === 'Income')
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      });
+
+      const totalExpenses = computed(() => {
+        return filteredRowData.value
+          .filter(row => row.type === 'Expense')
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      });
+
+      const netAmount = computed(() => {
+        return totalIncome.value - totalExpenses.value;
+      });
+
+      const totalNetAllMonths = computed(() => {
+        return rowData.value.reduce((sum, row) => {
+          if (row.type === 'Income') {
+            return sum + (Number(row.amount) || 0);
+          } else if (row.type === 'Expense') {
+            return sum - (Number(row.amount) || 0);
+          }
+          return sum;
+        }, 0);
+      });
+
+      return {
+        selectedTeamId,
+        months,
+        currentMonth,
+        currentYear,
+        categories,
+        rowData,
+        gridApi,
+        currentPage,
+        totalPages,
+        ownedTeams,
+        memberTeams,
+        errorMessage,
+        filteredMemberTeams,
+        filteredRowData,
+        totalIncome,
+        totalExpenses,
+        netAmount,
+        totalNetAllMonths
+      };
     },
     methods: {
-        async fetchUserTeams() {
-            try {
-                const response = await axios.get('/user/teams');
-                console.log('Full API Response:', response);
+      async fetchUserTeams() {
+        try {
+          const response = await axios.get('/user/teams');
+          console.log('Full API Response:', response);
 
-                if (response.data && response.data.ownedTeams && response.data.memberTeams) {
-                    this.ownedTeams = response.data.ownedTeams;
-                    this.memberTeams = response.data.memberTeams;
-                    console.log('Owned Teams set:', this.ownedTeams);
-                    console.log('Member Teams set:', this.memberTeams);
-                } else {
-                    console.error('Unexpected response structure:', response.data);
-                    this.showError('Unexpected response structure when fetching teams.');
-                }
-            } catch (error) {
-                console.error('Error fetching user teams:', error);
-                this.handleAxiosError(error, 'Error fetching user teams');
-            }
-        },
-        getCsrfToken() {
-            const token = document.querySelector('meta[name="csrf-token"]');
-            return token ? token.getAttribute('content') : null;
-        },
-        setupAxios() {
-            const token = this.getCsrfToken();
-            if (token) {
-                axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-            } else {
-                console.warn('CSRF token not found');
-                this.showError('CSRF token not found. Please refresh the page and try again.');
-            }
-        },
-        async fetchTransactions() {
-            try {
-                this.setupAxios();
-                const response = await axios.get('/transactions', {
-                    params: {
-                        month: this.months.indexOf(this.currentMonth) + 1,
-                        year: this.currentYear,
-                        team_id: this.selectedTeamId,
-                    },
-                });
-                console.log('Fetched transactions:', response.data);
-                this.rowData = response.data;
-                console.log('Updated rowData:', this.rowData);
-                this.updatePaginationState();
-            } catch (error) {
-                console.error('Error fetching transactions:', error);
-                this.handleAxiosError(error, 'Error fetching transactions');
-            }
-        },
-        async onCellValueChanged(event) {
-            try {
-                this.setupAxios();
-                await axios.put(`/transactions/${event.data.id}`, {
-                    ...event.data,
-                    team_id: this.selectedTeamId
-                });
-                console.log('Transaction updated successfully');
-            } catch (error) {
-                console.error('Error updating transaction:', error);
-                this.handleAxiosError(error, 'Error updating transaction');
-            }
-        },
-        async addNewEntry(newEntry) {
-            try {
-                this.setupAxios();
-                newEntry.team_id = this.selectedTeamId;
-                const response = await axios.post('/transactions', newEntry);
-                this.rowData = [...this.rowData, response.data];
-                this.updatePaginationState();
-            } catch (error) {
-                console.error('Error adding new transaction:', error);
-                this.handleAxiosError(error, 'Error adding new transaction');
-            }
-        },
-        async deleteEntries(ids) {
-      if (confirm(`Are you sure you want to delete ${ids.length} entries?`)) {
+          if (response.data && response.data.ownedTeams && response.data.memberTeams) {
+            this.ownedTeams = response.data.ownedTeams;
+            this.memberTeams = response.data.memberTeams;
+            console.log('Owned Teams set:', this.ownedTeams);
+            console.log('Member Teams set:', this.memberTeams);
+          } else {
+            console.error('Unexpected response structure:', response.data);
+            this.showError('Unexpected response structure when fetching teams.');
+          }
+        } catch (error) {
+          console.error('Error fetching user teams:', error);
+          this.handleAxiosError(error, 'Error fetching user teams');
+        }
+      },
+      getCsrfToken() {
+        const token = document.querySelector('meta[name="csrf-token"]');
+        return token ? token.getAttribute('content') : null;
+      },
+      setupAxios() {
+        const token = this.getCsrfToken();
+        if (token) {
+          axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
+        } else {
+          console.warn('CSRF token not found');
+          this.showError('CSRF token not found. Please refresh the page and try again.');
+        }
+      },
+      async fetchTransactions() {
         try {
           this.setupAxios();
-          await axios.post('/transactions/delete-multiple', { ids });
-          this.rowData = this.rowData.filter(row => !ids.includes(row.id));
-          console.log('Transactions deleted successfully');
+          const response = await axios.get('/transactions', {
+            params: {
+              month: this.months.indexOf(this.currentMonth) + 1,
+              year: this.currentYear,
+              team_id: this.selectedTeamId,
+            },
+          });
+          console.log('Fetched transactions:', response.data);
+          this.rowData = response.data;
+          console.log('Updated rowData:', this.rowData);
           this.updatePaginationState();
         } catch (error) {
-          console.error('Error deleting transactions:', error);
-          this.handleAxiosError(error, 'Error deleting transactions');
+          console.error('Error fetching transactions:', error);
+          this.handleAxiosError(error, 'Error fetching transactions');
         }
-      }
-    },
-        setCurrentMonth(month) {
-            this.currentMonth = month;
-            if (this.currentMonth === 'January' && this.months.indexOf(month) === 0) {
-                this.currentYear++;
-            } else if (this.currentMonth === 'December' && this.months.indexOf(month) === 11) {
-                this.currentYear--;
-            }
-            this.fetchTransactions();
-        },
-        onGridReady(params) {
-            this.gridApi = params.api;
+      },
+      async onCellValueChanged(event) {
+        try {
+          this.setupAxios();
+          await axios.put(`/transactions/${event.data.id}`, {
+            ...event.data,
+            team_id: this.selectedTeamId
+          });
+          console.log('Transaction updated successfully');
+        } catch (error) {
+          console.error('Error updating transaction:', error);
+          this.handleAxiosError(error, 'Error updating transaction');
+        }
+      },
+      async addNewEntry(newEntry) {
+        try {
+          this.setupAxios();
+          newEntry.team_id = this.selectedTeamId;
+          const response = await axios.post('/transactions', newEntry);
+          this.rowData = [...this.rowData, response.data];
+          this.updatePaginationState();
+        } catch (error) {
+          console.error('Error adding new transaction:', error);
+          this.handleAxiosError(error, 'Error adding new transaction');
+        }
+      },
+      async deleteEntries(ids) {
+        if (confirm(`Are you sure you want to delete ${ids.length} entries?`)) {
+          try {
+            this.setupAxios();
+            await axios.post('/transactions/delete-multiple', { ids });
+            this.rowData = this.rowData.filter(row => !ids.includes(row.id));
+            console.log('Transactions deleted successfully');
             this.updatePaginationState();
-        },
-        updatePaginationState() {
-            if (this.gridApi) {
-                this.currentPage = this.gridApi.paginationGetCurrentPage() + 1;
-                this.totalPages = this.gridApi.paginationGetTotalPages();
-            }
-        },
-        onBtFirst() {
-            this.gridApi.paginationGoToFirstPage();
-            this.updatePaginationState();
-        },
-        onBtLast() {
-            this.gridApi.paginationGoToLastPage();
-            this.updatePaginationState();
-        },
-        onBtNext() {
-            this.gridApi.paginationGoToNextPage();
-            this.updatePaginationState();
-        },
-        onBtPrevious() {
-            this.gridApi.paginationGoToPreviousPage();
-            this.updatePaginationState();
-        },
-        handleUploadedTransactions(transactions) {
-            this.rowData = [...this.rowData, ...transactions];
-            this.updatePaginationState();
-        },
-        showError(message) {
-            this.errorMessage = message;
-            setTimeout(() => {
-                this.clearError();
-            }, 5000);
-        },
-        clearError() {
-            this.errorMessage = null;
-        },
-        handleAxiosError(error, defaultMessage) {
-            if (error.response) {
-                this.showError(`${defaultMessage}: ${error.response.data.message || error.response.statusText}`);
-            } else if (error.request) {
-                this.showError(`${defaultMessage}: No response received from server. Please check your internet connection.`);
-            } else {
-                this.showError(`${defaultMessage}: ${error.message}`);
-            }
-        },
+          } catch (error) {
+            console.error('Error deleting transactions:', error);
+            this.handleAxiosError(error, 'Error deleting transactions');
+          }
+        }
+      },
+      setCurrentMonth(month) {
+        this.currentMonth = month;
+        if (this.currentMonth === 'January' && this.months.indexOf(month) === 0) {
+          this.currentYear++;
+        } else if (this.currentMonth === 'December' && this.months.indexOf(month) === 11) {
+          this.currentYear--;
+        }
+        this.fetchTransactions();
+      },
+      onGridReady(params) {
+        this.gridApi = params.api;
+        this.updatePaginationState();
+      },
+      updatePaginationState() {
+        if (this.gridApi) {
+          this.currentPage = this.gridApi.paginationGetCurrentPage() + 1;
+          this.totalPages = this.gridApi.paginationGetTotalPages();
+        }
+      },
+      onBtFirst() {
+        this.gridApi.paginationGoToFirstPage();
+        this.updatePaginationState();
+      },
+      onBtLast() {
+        this.gridApi.paginationGoToLastPage();
+        this.updatePaginationState();
+      },
+      onBtNext() {
+        this.gridApi.paginationGoToNextPage();
+        this.updatePaginationState();
+      },
+      onBtPrevious() {
+        this.gridApi.paginationGoToPreviousPage();
+        this.updatePaginationState();
+      },
+      handleUploadedTransactions(transactions) {
+        this.rowData = [...this.rowData, ...transactions];
+        this.updatePaginationState();
+      },
+      showError(message) {
+        this.errorMessage = message;
+        setTimeout(() => {
+          this.clearError();
+        }, 5000);
+      },
+      clearError() {
+        this.errorMessage = null;
+      },
+      handleAxiosError(error, defaultMessage) {
+        if (error.response) {
+          this.showError(`${defaultMessage}: ${error.response.data.message || error.response.statusText}`);
+        } else if (error.request) {
+          this.showError(`${defaultMessage}: No response received from server. Please check your internet connection.`);
+        } else {
+          this.showError(`${defaultMessage}: ${error.message}`);
+        }
+      },
     },
     created() {
-        console.log('Component created');
-        this.fetchUserTeams();
+      console.log('Component created');
+      this.fetchUserTeams();
     },
     mounted() {
-        console.log('Component mounted');
-        if (this.ownedTeams.length === 0 && this.memberTeams.length === 0) {
-            console.log('Teams not loaded in created hook, fetching again');
-            this.fetchUserTeams();
-        }
-        const page = usePage();
-        this.auth = page.props.auth;
+      console.log('Component mounted');
+      if (this.ownedTeams.length === 0 && this.memberTeams.length === 0) {
+        console.log('Teams not loaded in created hook, fetching again');
         this.fetchUserTeams();
-        this.fetchTransactions();
-        const now = new Date();
-        this.setCurrentMonth(this.months[now.getMonth()]);
-        this.currentYear = now.getFullYear();
-        console.log('SpreadsheetComponent mounted, auth:', this.auth);
+      }
+      const page = usePage();
+      this.auth = page.props.auth;
+      this.fetchUserTeams();
+      this.fetchTransactions();
+      console.log('SpreadsheetComponent mounted, auth:', this.auth);
     },
     watch: {
-        auth: {
-            handler(newAuth) {
-                console.log('Auth changed:', newAuth);
-            },
-            deep: true
+      auth: {
+        handler(newAuth) {
+          console.log('Auth changed:', newAuth);
         },
-        selectedTeamId: {
-            handler(newValue) {
-                console.log('Selected Team ID changed:', newValue);
-                this.fetchTransactions();
-            },
-            immediate: true
-        }
+        deep: true
+      },
+      selectedTeamId: {
+        handler(newValue) {
+          console.log('Selected Team ID changed:', newValue);
+          this.fetchTransactions();
+        },
+        immediate: true
+      }
     },
-};
-</script>
+  };
+  </script>
+
+  <style scoped>
+
+
+  .glass {
+    @apply bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg;
+  }
+
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-green-500;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.5s ease-out;
+  }
+  </style>
+
+
 
 <style>
 @import "ag-grid-community/styles/ag-grid.css";

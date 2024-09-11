@@ -1,6 +1,9 @@
 <template>
-  <div class="bank-statement-upload">
-    <form @submit.prevent="submit" class="space-y-4">
+  <div class="bank-statement-upload glass rounded-lg shadow-lg p-6 mb-6 animate-fadeIn">
+    <h2 class="text-xl font-bold mb-4 gradient-text">
+      <i class="fas fa-file-upload mr-2"></i>Upload Bank Statement
+    </h2>
+    <form @submit.prevent="submit" class="space-y-6">
       <div
         class="file-upload-container"
         @dragover.prevent="dragover"
@@ -26,7 +29,7 @@
       </div>
       <button
         type="submit"
-        class="btn bg-blue-500 hover:bg-blue-600 text-white w-full transition-all duration-300 ease-in-out transform hover:scale-105"
+        class="btn btn-primary w-full"
         :disabled="form.processing || !form.bankStatement"
         :class="{ 'opacity-50 cursor-not-allowed': form.processing || !form.bankStatement }"
       >
@@ -37,13 +40,13 @@
       </button>
     </form>
     <transition name="fade">
-      <div v-if="form.recentlySuccessful" class="mt-4 text-green-600 success-message">
+      <div v-if="form.recentlySuccessful" class="mt-4 text-green-600 success-message animate-slideIn">
         <i class="fas fa-check-circle mr-2"></i>
         Bank statement processed successfully.
       </div>
     </transition>
     <transition name="fade">
-      <div v-if="form.errors.bankStatement" class="mt-4 text-red-600 error-message">
+      <div v-if="form.errors.bankStatement" class="mt-4 text-red-600 error-message animate-slideIn">
         <i class="fas fa-exclamation-circle mr-2"></i>
         {{ form.errors.bankStatement }}
       </div>
@@ -56,13 +59,13 @@ import { useForm } from '@inertiajs/vue3';
 import { ref, inject } from 'vue';
 
 export default {
-    emits: ['transactions-updated'],
+  emits: ['transactions-updated'],
   setup(props, { emit }) {
-    const selectedTeamId = inject('selectedTeamId'); // Inject the selected team ID
+    const selectedTeamId = inject('selectedTeamId');
 
     const form = useForm({
       bankStatement: null,
-      teamId: null, // Add this line
+      teamId: null,
     });
     const fileInputRef = ref(null);
 
@@ -74,15 +77,15 @@ export default {
     };
 
     const dragover = (event) => {
-      event.target.classList.add('border-blue-500');
+      event.target.classList.add('border-blue-500', 'bg-blue-50');
     };
 
     const dragleave = (event) => {
-      event.target.classList.remove('border-blue-500');
+      event.target.classList.remove('border-blue-500', 'bg-blue-50');
     };
 
     const drop = (event) => {
-      event.target.classList.remove('border-blue-500');
+      event.target.classList.remove('border-blue-500', 'bg-blue-50');
       const file = event.dataTransfer.files[0];
       if (file) {
         form.bankStatement = file;
@@ -90,7 +93,7 @@ export default {
     };
 
     const submit = () => {
-      form.teamId = selectedTeamId.value; // Set the team ID before submitting
+      form.teamId = selectedTeamId.value;
       form.post('/api/upload-bank-statement', {
         preserveScroll: true,
         preserveState: true,
@@ -106,12 +109,12 @@ export default {
 </script>
 
 <style scoped>
-.bank-statement-upload {
-  @apply p-6 bg-white rounded-lg shadow-md;
+.file-upload-container {
+  @apply relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-all duration-300 ease-in-out;
 }
 
-.file-upload-container {
-  @apply relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer transition-all duration-300 ease-in-out hover:border-blue-500;
+.file-upload-container:hover {
+  @apply border-blue-500 bg-blue-50;
 }
 
 .file-upload-label {
@@ -119,24 +122,32 @@ export default {
 }
 
 .file-upload-icon {
-  @apply text-4xl text-gray-400 mb-2;
+  @apply text-5xl text-gray-400 mb-4 transition-all duration-300;
+}
+
+.file-upload-container:hover .file-upload-icon {
+  @apply text-blue-500 transform scale-110;
 }
 
 .file-upload-text {
-  @apply text-sm text-gray-600;
+  @apply text-sm text-gray-600 transition-all duration-300;
+}
+
+.file-upload-container:hover .file-upload-text {
+  @apply text-blue-600;
 }
 
 .success-message,
 .error-message {
-  @apply p-3 rounded-md text-sm;
+  @apply p-4 rounded-md text-sm;
 }
 
 .success-message {
-  @apply bg-green-100;
+  @apply bg-green-100 border border-green-200;
 }
 
 .error-message {
-  @apply bg-red-100;
+  @apply bg-red-100 border border-red-200;
 }
 
 .fade-enter-active,
@@ -147,5 +158,20 @@ export default {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.5s ease-out forwards;
 }
 </style>

@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/transactions', [TransactionController::class, 'store']);
     Route::put('/transactions/{transaction}', [TransactionController::class, 'update']);
     Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy']);
+    Route::post('/transactions/delete-multiple', [TransactionController::class, 'destroyMultiple']);
 
     Route::get('/upload-bank-statement', function () {
         return Inertia::render('BankStatementUpload');
@@ -47,7 +48,6 @@ Route::middleware('auth')->group(function () {
 
     // Explicitly define the DELETE route for teams
     Route::delete('/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
-    Route::post('/transactions/delete-multiple', [TransactionController::class, 'destroyMultiple']);
 
 
     Route::get('/user', function (Request $request) {

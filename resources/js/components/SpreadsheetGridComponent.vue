@@ -4,7 +4,7 @@
             <h2 class="text-2xl font-bold text-white mb-2 sm:mb-0">Financial Entries</h2>
             <button
                 @click="deleteSelected"
-                class="btn btn-primary"
+                class="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-opacity-50 "
                 :class="{ 'opacity-50 cursor-not-allowed': selectedRows.length === 0 }"
                 :disabled="selectedRows.length === 0"
             >

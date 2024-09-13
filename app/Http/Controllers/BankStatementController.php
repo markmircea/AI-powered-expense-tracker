@@ -13,16 +13,15 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Team;  // Add this line to import the Team model
-
-
+use App\Models\Team;
+use Smalot\PdfParser\Parser;
 
 class BankStatementController extends Controller
 {
     public function upload(Request $request)
     {
         $request->validate([
-            'bankStatement' => 'required|file|mimes:csv,xlsx,xls',
+            'bankStatement' => 'required|file|mimes:csv,xlsx,xls,pdf',
             'teamId' => 'nullable|exists:teams,id',
         ]);
 
@@ -77,6 +76,8 @@ class BankStatementController extends Controller
 
         if ($extension === 'csv') {
             return file_get_contents($fullPath);
+        } elseif ($extension === 'pdf') {
+            return $this->extractContentFromPdf($fullPath);
         } else {
             $spreadsheet = IOFactory::load($fullPath);
             $worksheet = $spreadsheet->getActiveSheet();
@@ -94,13 +95,21 @@ class BankStatementController extends Controller
         }
     }
 
+    private function extractContentFromPdf($fullPath)
+    {
+        $parser = new Parser();
+        $pdf = $parser->parseFile($fullPath);
+        $content = $pdf->getText();
+        return $content;
+    }
+
     private function analyzeContentWithOpenAI($content)
     {
         try {
             $response = OpenAI::chat()->create([
                 'model' => 'gpt-4o-mini',
                 'messages' => [
-                    ['role' => 'system', 'content' => "You are a financial analyst tasked with extracting transaction data from bank statements. Extract each transaction's date (in YYYY-MM-DD format), description (analyze all of the text for each entry and include the vendor), amount, category (based on the name and description and using one these  'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts', 'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping', 'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities') , and whether it's 'Income' or 'Expense' saved as type. Provide the output as a JSON array of transactions."],
+                    ['role' => 'system', 'content' => "You are a financial analyst tasked with extracting transaction data from bank statements. Extract each transaction's date (in YYYY-MM-DD format), description (analyze all of the text for each entry and include the vendor), amount (expense should always have a - infront of the number), category (based on the name and description and using one these  'Car', 'Cash Out', 'Communication', 'Divertisment', 'Education', 'Food', 'Gifts', 'Health', 'Insurance', 'Nicotine', 'Personal', 'Rent', 'Revolut', 'Restaurant', 'Shopping', 'Sport', 'Subscriptions', 'Supermarket', 'Transport', 'Travel', 'Utilities') , and whether it's 'Income' or 'Expense' saved as type. Provide the output as a JSON array of transactions."],
                     ['role' => 'user', 'content' => "Here's the bank statement content:\n\n$content"]
                 ],
                 'temperature' => 0.7,

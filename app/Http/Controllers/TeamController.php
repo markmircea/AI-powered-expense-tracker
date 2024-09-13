@@ -41,6 +41,8 @@ class TeamController extends Controller
 
     public function show(Team $team)
     {
+        Log::info('Show method called');
+
         if (Auth::id() !== $team->owner_id && !$team->members->contains(Auth::id())) {
             abort(403, 'Unauthorized action.');
         }

@@ -15,7 +15,7 @@
             <i class="fas fa-cloud-upload-alt"></i>
           </span>
           <span class="file-upload-text">
-            {{ form.bankStatement ? form.bankStatement.name : 'Drag and drop or click to upload a bank statement file' }}
+            {{ form.bankStatement ? form.bankStatement.name : 'Drag and drop or click to upload a bank statement file (CSV, XLSX, XLS, or PDF)' }}
           </span>
         </label>
         <input
@@ -24,7 +24,7 @@
           ref="bankStatement"
           @change="handleFileChange"
           class="hidden"
-          accept=".csv,.xlsx,.xls"
+          accept=".csv,.xlsx,.xls,.pdf"
         >
       </div>
       <button

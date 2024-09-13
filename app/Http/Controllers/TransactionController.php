@@ -6,6 +6,8 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
@@ -38,12 +40,12 @@ class TransactionController extends Controller
             $month = $request->input('month');
             $year = $request->input('year');
             $query->whereYear('date', $year)
-                  ->whereMonth('date', $month);
+                ->whereMonth('date', $month);
         }
 
         $transactions = $query->get();
         \Log::info("Number of transactions fetched: " . $transactions->count());
-        return response()->json($transactions);
+        return response()->json(['data' => $transactions, 'message' => 'Transactions fetched successfully']);
     }
 
     public function store(Request $request)
@@ -61,9 +63,10 @@ class TransactionController extends Controller
 
         try {
             $transaction = Transaction::create($validatedData);
-            return response()->json($transaction, 201);
+            return response()->json(['data' => $transaction, 'message' => 'Transaction created successfully'], 201);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to save transaction'], 500);
+            \Log::error('Failed to save transaction: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to save transaction. Please try again.'], 500);
         }
     }
 
@@ -81,14 +84,20 @@ class TransactionController extends Controller
         $user = Auth::user();
 
         // Check if the user has permission to update this transaction
-        if ($transaction->user_id !== $user->id &&
-            (!$transaction->team_id || !$user->teams->contains($transaction->team_id))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        if (
+            $transaction->user_id !== $user->id &&
+            (!$transaction->team_id || !$user->teams->contains($transaction->team_id))
+        ) {
+            return response()->json(['error' => 'You are not authorized to update this transaction'], 403);
         }
 
-        $transaction->update($validatedData);
-
-        return response()->json($transaction, 200);
+        try {
+            $transaction->update($validatedData);
+            return response()->json(['data' => $transaction, 'message' => 'Transaction updated successfully'], 200);
+        } catch (\Exception $e) {
+            \Log::error('Failed to update transaction: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to update transaction. Please try again.'], 500);
+        }
     }
 
     public function destroy($id)
@@ -97,46 +106,77 @@ class TransactionController extends Controller
         $transaction = Transaction::findOrFail($id);
 
         // Check if the user has permission to delete this transaction
-        if ($transaction->user_id !== $user->id &&
-            (!$transaction->team_id || !$user->teams->contains($transaction->team_id))) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        if (
+            $transaction->user_id !== $user->id &&
+            (!$transaction->team_id || !$user->teams->contains($transaction->team_id))
+        ) {
+            return response()->json(['error' => 'You are not authorized to delete this transaction'], 403);
         }
 
-        $transaction->delete();
-        return response()->json(null, 204);
+        try {
+            $transaction->delete();
+            return response()->json(['message' => 'Transaction deleted successfully'], 200);
+        } catch (\Exception $e) {
+            \Log::error('Failed to delete transaction: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to delete transaction. Please try again.'], 500);
+        }
     }
 
     public function destroyMultiple(Request $request)
     {
+        \Log::info('destroyMultiple called', ['user_id' => Auth::id(), 'input' => $request->all()]);
+
         $validatedData = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'exists:transactions,id',
         ]);
 
         $user = Auth::user();
-        $successCount = 0;
-        $failCount = 0;
 
-        foreach ($validatedData['ids'] as $id) {
-            $transaction = Transaction::find($id);
+        // Modify this line to specify the table name for the id column
+        $teamIds = $user->teams()->pluck('teams.id')->toArray();
 
-            if (!$transaction) {
-                $failCount++;
-                continue;
-            }
+        \Log::info('User teams', ['team_ids' => $teamIds]);
 
-            // Check if the user has permission to delete this transaction
-            if ($transaction->user_id === $user->id ||
-                ($transaction->team_id && $user->teams->contains($transaction->team_id))) {
+        DB::beginTransaction();
+        try {
+            $transactions = Transaction::whereIn('transactions.id', $validatedData['ids'])
+                ->where(function ($query) use ($user, $teamIds) {
+                    $query->where('transactions.user_id', $user->id)
+                          ->orWhereIn('transactions.team_id', $teamIds);
+                })
+                ->get();
+
+            $successCount = $transactions->count();
+            $failCount = count($validatedData['ids']) - $successCount;
+
+            foreach ($transactions as $transaction) {
                 $transaction->delete();
-                $successCount++;
-            } else {
-                $failCount++;
             }
-        }
 
-        return response()->json([
-            'message' => "$successCount transactions deleted successfully. $failCount deletions failed due to permissions.",
-        ]);
+            DB::commit();
+
+            \Log::info('Transactions deleted', [
+                'success_count' => $successCount,
+                'fail_count' => $failCount,
+                'deleted_ids' => $transactions->pluck('id')
+            ]);
+
+            return response()->json([
+                'message' => "$successCount transactions deleted successfully. $failCount transactions could not be deleted due to permissions.",
+                'success_count' => $successCount,
+                'fail_count' => $failCount,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Error in destroyMultiple', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'error' => 'An error occurred while deleting transactions. Please try again.',
+                'details' => $e->getMessage()
+            ], 500);
+        }
     }
 }
